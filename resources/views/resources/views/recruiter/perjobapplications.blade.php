@@ -94,35 +94,44 @@
   <h5 class="card-header">Applicants for {{ $job->title }}</h5>
   <div class="table-responsive text-nowrap">
     <table class="table table-hover">
-      <thead>
-        <tr>
-          <th>Applicant</th>
-          <th>Status</th>
-          <th>Score</th>
-          <th>Feedback</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        @forelse ($applications as $application)
-        <tr>
-          <td>{{ $application->user->name ?? '-' }}</td>
-          <td><span class="badge bg-label-info">{{ $application->status }}</span></td>
-          <td>{{ $application->score ?? '-' }}</td>
-          <td style="max-width: 300px;">
-            {{ \Illuminate\Support\Str::limit($application->feedback, 100) ?? '-' }}
-          </td>
-          <td>
-            <a href="{{ route('applications.show', $application->id) }}" class="btn btn-sm btn-primary">
-              View
-            </a>
-          </td>
-        </tr>
-        @empty
-        <tr><td colspan="5" class="text-center">No applications found for this job post.</td></tr>
-        @endforelse
-      </tbody>
-    </table>
+  <thead>
+    <tr>
+      <th>Applicant</th>
+      <th>Status</th>
+      <th>Score</th>
+      <th>Feedback</th>
+      <th>Via Referral</th> <!-- Kolom baru -->
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    @forelse ($applications as $application)
+      <tr>
+        <td>{{ $application->user->name ?? '-' }}</td>
+        <td><span class="badge bg-label-info">{{ $application->status }}</span></td>
+        <td>{{ $application->score ?? '-' }}</td>
+        <td style="max-width: 300px;">
+          {{ \Illuminate\Support\Str::limit($application->feedback, 100) ?? '-' }}
+        </td>
+        <td>
+          @if ($application->applied_via_referral)
+            <span class="badge bg-success">✅</span>
+          @else
+            <span class="badge bg-secondary">❌</span>
+          @endif
+        </td>
+        <td>
+          <a href="{{ route('applications.show', $application->id) }}" class="btn btn-sm btn-primary">
+            View
+          </a>
+        </td>
+      </tr>
+    @empty
+      <tr><td colspan="6" class="text-center">No applications found for this job post.</td></tr>
+    @endforelse
+  </tbody>
+</table>
+
   </div>
 </div>
 @endsection
