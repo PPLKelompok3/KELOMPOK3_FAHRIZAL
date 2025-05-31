@@ -16,6 +16,20 @@
           <span class="text-white"><strong>{{ $article->created_at->format('F d, Y') }}</strong></span>
         </div>
         <h1 class="text-white">{{ $article->title }}</h1>
+        @auth
+  <form action="{{ route('articles.toggleFavorite', $article->id) }}" method="POST" style="display:inline-block;">
+    @csrf
+    <button type="submit" class="btn btn-outline-light btn-sm mt-2">
+      @if(auth()->user()->favoriteArticles()->where('article_id', $article->id)->exists())
+    <i class="bx bxs-bookmark"></i> Remove from Favorites
+@else
+    <i class="bx bx-bookmark"></i> Save to Favorites
+@endif
+
+    </button>
+  </form>
+@endauth
+
       </div>
     </div>
   </div>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Article;
+use App\Models\FavoriteArticle;
 use App\Models\Skill;
 use App\Models\ArticleComment;
 use Illuminate\Support\Facades\Auth;
@@ -149,7 +150,7 @@ public function approveArticle($id)
     $article->status = 'published';
     $article->save();
 
-    return back()->with('success', 'Article approved and published.');
+    return back()->with('success', 'Article approved and published');
 }
 public function listArticles()
 {
@@ -172,6 +173,46 @@ public function adminPublishedArticles()
 
     return view('admin.articles.admin_published', compact('articles'));
 }
+public function toggleFavorite($articleId)
+{
+    $user = auth::user();
+
+    $existing = FavoriteArticle::where('user_id', $user->id)
+        ->where('article_id', $articleId)
+        ->first();
+
+    if ($existing) {
+        $existing->delete();
+        $status = 'removed';
+    } else {
+        FavoriteArticle::create([
+            'user_id' => $user->id,
+            'article_id' => $articleId,
+        ]);
+        $status = 'added';
+    }
+
+    // ✅ Redirect back with session flash message instead of returning JSON
+    return redirect()->back()->with('status', "Article {$status} to favorites.");
+}
+
+public function favoriteList()
+{
+    $user = auth::user();
+    /** @var \App\Models\User $user */
+    $favoriteArticles = $user->favoriteArticles()
+        ->with(['author']) // 'thumbnail' isn't a relation; keep only if it's an accessor
+        ->where('status', 'published')
+        ->latest()
+        ->get();
+
+    return view('articles.favorites', compact('favoriteArticles'));
+}
+
+
+
+
+
 
 
 

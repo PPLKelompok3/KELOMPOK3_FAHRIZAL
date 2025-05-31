@@ -16,6 +16,7 @@ public function author()
 {
     return $this->belongsTo(User::class, 'user_id');
 }
+
 public function comments()
 {
     return $this->hasMany(ArticleComment::class);

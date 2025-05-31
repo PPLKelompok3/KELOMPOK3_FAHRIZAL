@@ -97,6 +97,12 @@ public function customNotifications()
     return $this->hasMany(Notification::class, 'user_id');
 }
 
+// In User.php
+public function favoriteArticles()
+{
+    return $this->belongsToMany(\App\Models\Article::class, 'favorite_articles')->withTimestamps();
+}
+
 
 
 
