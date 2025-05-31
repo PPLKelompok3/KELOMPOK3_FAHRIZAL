@@ -157,8 +157,21 @@ public function applicationsByJob($jobId, Request $request)
     $availableSkills = \App\Models\Skill::pluck('name');
     $availableLocations = \App\Models\UserProfile::distinct()->pluck('location');
 
-    return view('recruiter.perjobapplications', compact('job', 'applications', 'availableSkills', 'availableLocations'));
+    // ✅ Fetch recruiter's saved filters
+    $savedFilters = \App\Models\SavedFilter::where('user_id', $user->id)
+        ->where('job_id', $jobId)
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+    return view('recruiter.perjobapplications', compact(
+        'job',
+        'applications',
+        'availableSkills',
+        'availableLocations',
+        'savedFilters' 
+    ));
 }
+
 
 
 

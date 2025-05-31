@@ -168,6 +168,12 @@
                             <div data-i18n="Analytics">Notifications</div>
                         </a>
                     </li>
+                    <li class="menu-item {{ request()->routeIs('recruiter.review') ? 'active' : '' }}">
+    <a href="{{ route('recruiter.review') }}" class="menu-link">
+        <i class="menu-icon tf-icons bx bx-star"></i>
+        <div data-i18n="Company Reviews">Company Reviews</div>
+    </a>
+</li>
                     
                 </ul>
             </aside>
