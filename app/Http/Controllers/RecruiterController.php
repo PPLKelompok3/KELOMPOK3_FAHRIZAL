@@ -118,6 +118,49 @@ public function applications(Request $request)
 
     return view('recruiter.applicationindex', compact('applications', 'availableSkills', 'availableFields', 'availableLocations'));
 }
+public function applicationsByJob($jobId, Request $request)
+{
+    $user = Auth::user();
+    $companyId = $user->company->id ?? null;
+
+    if (!$companyId) {
+        abort(403, 'You do not have a company profile.');
+    }
+
+    // Make sure the job belongs to the current recruiter
+    $job = \App\Models\JobPost::where('id', $jobId)
+        ->where('company_id', $companyId)
+        ->firstOrFail();
+
+    $query = \App\Models\JobApplication::with(['user.skills', 'user.education', 'user.profile'])
+        ->where('job_id', $jobId);
+
+    // Filters
+    if ($request->filled('skill')) {
+        $query->whereHas('user.skills', function ($q) use ($request) {
+            $q->where('name', $request->skill);
+        });
+    }
+
+    if ($request->filled('location')) {
+        $query->whereHas('user.profile', function ($q) use ($request) {
+            $q->where('location', 'like', '%' . $request->location . '%');
+        });
+    }
+
+    if ($request->filled('min_score')) {
+        $query->where('score', '>=', (int) $request->min_score);
+    }
+
+    $applications = $query->latest()->get();
+
+    $availableSkills = \App\Models\Skill::pluck('name');
+    $availableLocations = \App\Models\UserProfile::distinct()->pluck('location');
+
+    return view('recruiter.perjobapplications', compact('job', 'applications', 'availableSkills', 'availableLocations'));
+}
+
+
 
 
 

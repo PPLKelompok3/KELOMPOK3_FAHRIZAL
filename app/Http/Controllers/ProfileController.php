@@ -57,4 +57,16 @@ class ProfileController extends Controller
 
         return Redirect::to('/');
     }
+     public function show()
+    {
+        $user = Auth::user();
+        $profile = $user->profile;
+        $experiences = $user->experiences;
+        $skills = $user->skills;
+        $projects = $user->projects;
+        $educations = $user->educations;
+        $achievements = $user->achievements()->latest()->get();
+
+        return view('profile.show', compact('user', 'profile', 'skills', 'experiences', 'projects', 'educations', 'achievements'));
+    }
 }

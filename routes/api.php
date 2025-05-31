@@ -55,9 +55,9 @@ Route::get('/companies/search', function (Request $request) {
 Route::get('/api/skills/search', function (Request $request) {
     $query = $request->get('q', '');
     $skills = \App\Models\Skill::where('name', 'LIKE', "%$query%")
-        ->pluck('name')
-        ->map(fn($skill) => ['value' => $skill])
-        ->values();
+                ->pluck('name')
+                ->map(fn($skill) => ['value' => $skill])
+                ->values();
 
     return response()->json($skills);
 });

@@ -15,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'applicant' => \App\Http\Middleware\EnsureUserIsApplicant::class,
             'recruiter' => \App\Http\Middleware\EnsureUserIsRecruiter::class,
+            'admin' => App\Http\Middleware\EnsureAdmin::class,
+            'verified.recruiter' => App\Http\Middleware\EnsureRecruiterVerified::class,
+            
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

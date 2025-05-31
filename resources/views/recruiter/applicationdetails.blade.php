@@ -62,89 +62,178 @@
   </div>
 </div>
 
-<h5 class="pb-1 mb-4">Status and Interview Schedule</h5>
-<div class="row mb-5 d-flex align-items-stretch">
-    <!-- Status and Action Card -->
-    <div class="col-md-6 d-flex">
-      <div class="card mb-3 w-100 h-100">
-        <div class="card-body text-center">
-          <h5 class="card-title mb-4">Current Status</h5>
-  
-          <h2 id="current-status" class="text-primary mb-4" style="font-weight: bold;">
-            {{ $application->status }}
-          </h2>
-          
-  
-          <div class="mb-3">
-            <form action="{{ route('applications.updateStatus', $application->id) }}" method="POST">
-                @csrf
-                @method('PATCH')
-              
-                <select name="status" class="form-select mb-3" id="status-dropdown">
-                  <option value="Pending" {{ $application->status == 'Pending' ? 'selected' : '' }}>Pending</option>
-                  <option value="Processed" {{ $application->status == 'Processed' ? 'selected' : '' }}>Processed</option>
-                  <option value="Interview" {{ $application->status == 'Interview' ? 'selected' : '' }}>Interview</option>
-                  <option value="Accepted" {{ $application->status == 'Accepted' ? 'selected' : '' }}>Accepted</option>
-                  <option value="Rejected" {{ $application->status == 'Rejected' ? 'selected' : '' }}>Rejected</option>
-                </select>
-              
-                <button type="submit" class="btn btn-primary mt-2">
-                  Apply Status
-                </button>
-              </form> 
-          </div>
-        </div>
+<h5 class="pb-1 mb-4">Application Status</h5>
+<div class="card mb-5 w-100">
+  @if ($application->status === 'Under_assessment')
+    <div class="card-body">
+      <div class="alert alert-warning mb-0">
+        This applicant is currently working on their assessment. Please wait for submission.
       </div>
     </div>
-  
-    <!-- Interview Date Picker Card -->
-    <div class="col-md-6 d-flex">
-        <div class="card mb-3 w-100 h-100">
-          <div class="card-body text-center" id="calendar-card">
-          <h5 class="card-title mb-4">Interview Schedule</h5>
-          <input type="date" id="interview-date" class="form-control mb-3"
-       value="{{ $application->interview_date }}" 
-       {{ $application->status == 'Interview' ? '' : 'disabled' }}>
+  @else
+  <form action="{{ route('applications.updateStatus', $application->id) }}" method="POST" class="card-body">
+    @csrf
+    @method('PATCH')
 
-  
-          <p class="card-text">
-            <small class="text-muted">Pick an interview date once status is set to Interview.</small>
-          </p>
-        </div>
-      </div>
+      <div class="mb-3">
+        <label class="form-label fw-bold">
+          Current Status: <span class="text-primary">{{ $application->status }}</span>
+        </label>
+    </div>
+
+      @if ($application->status === 'Pending')
+        <button type="submit" name="status" value="Processed" class="btn btn-outline-primary">Move to Processed</button>
+      @elseif ($application->status === 'Processed' || $application->status === 'Waiting_for_review')
+      @if ($submission && $submission->submission_text)
+  <div class="mb-4">
+    <label class="form-label fw-bold">Applicant's Answer</label>
+    <div class="border p-3 rounded bg-white" style="white-space: pre-wrap;">
+      {!! $submission->submission_text !!}
     </div>
   </div>
+@endif
+@if ($submission && $submission->submission_file)
+  <div class="mb-4">
+    <label class="form-label fw-bold">Submitted File</label>
+    <p>
+      <a href="{{ asset('storage/' . $submission->submission_file) }}" target="_blank" class="btn btn-outline-primary btn-sm">
+        <i class="bx bx-download me-1"></i> Download File
+      </a>
+    </p>
+  </div>
+@endif
+
+@php
+  $nextStatus = match($application->status) {
+    'Pending' => 'Processed',
+    'Processed', 'Waiting_for_review' => 'Interview',
+    'Interview' => null,
+    default => null
+  };
+@endphp
+        @if ($application->status === 'Waiting_for_review')
+          <div class="mb-3">
+      <label for="feedback" class="form-label fw-bold">Feedback</label>
+            <textarea class="form-control w-75" id="feedback" name="feedback" rows="3" required>{{ old('feedback', $application->feedback) }}</textarea>
+            <small class="text-muted">Please write a review before moving forward.</small>
+    <!-- Feedback and Score -->
+    <div id="feedback-section" class="mb-4" style="display: none;">
+      <label for="score" class="form-label fw-bold">Score (1–100)</label>
+      <input type="number" class="form-control w-50 mb-3" id="score" name="score" min="1" max="100" value="{{ $application->score }}">
+
+      <label for="feedback" class="form-label fw-bold">Feedback</label>
+      <textarea class="form-control w-75" id="feedback" name="feedback" rows="3">{{ old('feedback', $application->feedback) }}</textarea>
+    </div>
+          <!-- Interview Date (conditionally shown only when next status is Interview) -->
+@if ($nextStatus === 'Interview')
+  <div class="mb-4">
+    <label for="interview-date" class="form-label fw-bold">Interview Date</label>
+    <input type="date" name="interview_date" class="form-control w-50"
+           value="{{ old('interview_date', $application->interview_date ? $application->interview_date->format('Y-m-d') : '') }}"
+           required>
+    <small class="text-muted">Choose the date for the applicant’s interview.</small>
+  </div>
+@endif
+        @endif
+        <button type="submit" name="status" value="Interview" class="btn btn-outline-success">Move to Interview</button>
+      @elseif ($application->status === 'Interview')
+        <div class="mb-3">
+          <label class="form-label fw-bold">Interview Date</label>
+          <input type="date" name="interview_date" class="form-control w-50" value="{{ $application->interview_date }}" required>
+        </div>
+        <div class="mt-3">
+          <label class="form-label">Score</label>
+          <input type="number" name="score" class="form-control w-50" value="{{ $application->score }}" min="1" max="100" required>
+        </div>
+        <div class="mt-3">
+          <label class="form-label">Feedback</label>
+          <textarea name="feedback" class="form-control w-75" rows="3" required>{{ old('feedback', $application->feedback) }}</textarea>
+        </div>
+        <div class="d-flex gap-2  mt-4">
+          <button type="submit" name="status" value="Accepted" class="btn btn-success">Accept</button>
+          <button type="submit" name="status" value="Rejected" class="btn btn-danger">Reject</button>
+    </div>
+      @endif
+  </form>
+  @endif
+</div>
+
+
+
+  
+
   
 @endsection
 
 @push('scripts')
 <script>
-    document.getElementById('apply-status-btn').addEventListener('click', function() {
-      const selectedStatus = document.getElementById('status-dropdown').value;
-      const statusElement = document.getElementById('current-status');
-      const calendarCard = document.getElementById('calendar-card');
-      const interviewDateInput = document.getElementById('interview-date');
-    
-      // Update text
-      statusElement.textContent = selectedStatus;
-    
-      // Color change for "Accepted" or "Rejected"
-      if (selectedStatus === "Accepted") {
-        statusElement.className = 'text-success';
-      } else if (selectedStatus === "Rejected") {
-        statusElement.className = 'text-danger';
-      } else {
-        statusElement.className = 'text-primary';
+  document.addEventListener('DOMContentLoaded', function () {
+    const dropdown = document.getElementById('status-dropdown');
+    const interviewSection = document.getElementById('interview-date-section');
+    const feedbackSection = document.getElementById('feedback-section');
+    const scoreInputAlt = document.getElementById('score-alt');
+    const feedbackInputAlt = document.getElementById('feedback-alt');
+    const form = dropdown?.closest('form');
+
+    function toggleSections() {
+      const status = dropdown?.value;
+
+      interviewSection.style.display = (status === 'Interview') ? 'block' : 'none';
+      feedbackSection.style.display = (status === 'Accepted' || status === 'Rejected') ? 'block' : 'none';
+    }
+
+    function clearUnusedFields() {
+      const status = dropdown?.value;
+
+      if (status !== 'Interview') {
+        document.getElementById('interview-date').value = '';
       }
-    
-      // Enable calendar only if Interview
-      if (selectedStatus === "Interview") {
-        calendarCard.style.opacity = "1";
-        interviewDateInput.disabled = false;
-      } else {
-        calendarCard.style.opacity = "0.5";
-        interviewDateInput.disabled = true;
+      if (status !== 'Accepted' && status !== 'Rejected') {
+        if (scoreInputAlt) scoreInputAlt.value = '';
+        if (feedbackInputAlt) feedbackInputAlt.value = '';
       }
-    });
-    </script>
+    }
+
+    if (dropdown && form) {
+    dropdown.addEventListener('change', toggleSections);
+    toggleSections();
+    clearUnusedFields();
+
+    form.addEventListener('submit', function (e) {
+  const status = dropdown.value;
+
+  // Validate feedback and score for Accepted/Rejected
+        if ((status === 'Accepted' || status === 'Rejected') && scoreInputAlt && feedbackInputAlt) {
+          if (!scoreInputAlt.value.trim() || !feedbackInputAlt.value.trim()) {
+      e.preventDefault();
+      alert('Please fill out both score and feedback before applying status.');
+      return;
+    }
+  }
+
+        // Validate for Waiting_for_review status → require same fields
+        if ('{{ $application->status }}' === 'Waiting_for_review') {
+  const feedback = document.getElementById('feedback')?.value.trim();
+  if (!feedback) {
+    e.preventDefault();
+    alert('Feedback is required to proceed from Waiting for Review.');
+    return;
+  }
+}
+
+
+  if (status === 'Interview') {
+          const date = document.getElementById('interview-date')?.value.trim();
+          if (!date) {
+      e.preventDefault();
+            alert('Please select an interview date.');
+      return;
+    }
+  }
+});
+    }
+  });
+</script>
 @endpush
+
+

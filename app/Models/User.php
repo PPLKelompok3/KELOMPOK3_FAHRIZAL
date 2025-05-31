@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use App\Models\UserProfile;
 use App\Models\Skill;
+use App\Models\Education;
 
 
 class User extends Authenticatable
@@ -60,9 +61,13 @@ class User extends Authenticatable
 {
     return $this->belongsToMany(Skill::class, 'user_skills');
 }
+public function educations()
+{
+    return $this->hasMany(Education::class);
+}
 public function education()
 {
-    return $this->hasMany(\App\Models\Education::class);
+    return $this->hasMany(Education::class);
 }
 
 public function experiences()

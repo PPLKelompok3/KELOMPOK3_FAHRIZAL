@@ -1,4 +1,4 @@
-@extends('layouts.applicant')
+@extends('layouts.applicant') 
 @section('title', 'My Applications')
 
 @section('content')
@@ -27,9 +27,7 @@
           <td>{{ $application->created_at->format('M d, Y') }}</td>
         </tr>
         @empty
-        <tr>
-          <td colspan="4" class="text-center">You haven't applied for any jobs yet.</td>
-        </tr>
+        <tr><td colspan="4" class="text-center">You haven't applied for any jobs yet.</td></tr>
         @endforelse
       </tbody>
     </table>

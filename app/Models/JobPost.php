@@ -26,4 +26,13 @@ class JobPost extends Model
     {
         return $this->belongsTo(Company::class);
     }
+    public function scopeLatestJobs($query)
+{
+    return $query->addSelect([
+        'example_jobs' => JobPost::selectRaw("GROUP_CONCAT(title ORDER BY created_at DESC SEPARATOR ', ')")
+            ->whereColumn('category', 'job_posts.category')
+            ->limit(3)
+    ]);
+}
+
 }

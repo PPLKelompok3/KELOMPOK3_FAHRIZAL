@@ -27,7 +27,7 @@ class ViewServiceProvider extends ServiceProvider
         if (Auth::check()) {
             $notifications = Notification::where('user_id', Auth::id())
                 ->where('is_read', 0)
-                ->latest()
+                ->orderBy('updated_at', 'desc')
                 ->take(5)
                 ->get();
 

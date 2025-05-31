@@ -8,7 +8,7 @@
     <h5>Create New Job</h5>
   </div>
   <div class="card-body">
-    <form method="POST" action="{{ route('jobs.store') }}">
+    <form method="POST" action="{{ route('jobs.store') }}" enctype="multipart/form-data">
       @csrf
 
       <div class="mb-3">
@@ -72,8 +72,59 @@
         <label class="form-label">Job Description</label>
         <textarea name="description" class="form-control" rows="5" required></textarea>
       </div>
+      <div class="card mt-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h6 class="mb-0">Optional Assessment</h6>
+    <div class="form-check form-switch">
+      <input class="form-check-input" type="checkbox" id="enable-assessment">
+      <label class="form-check-label" for="enable-assessment">Enable</label>
+    </div>
+  </div>
+  <div class="card-body" id="assessment-section" style="display: none;">
+    <div class="mb-3">
+      <label class="form-label">Assessment Type</label>
+      <select class="form-control" name="assessment_type" id="assessment-type">
+        <option value="">Select Type</option>
+        <option value="essay">Essay</option>
+        <option value="file_upload">File Upload</option>
+      </select>
+    </div>
 
-      <button type="submit" class="btn btn-primary">Post Job</button>
+    <div class="mb-3 d-none" id="essay-editor-wrapper">
+      <label class="form-label">Essay Question</label>
+      <textarea name="essay_questions" id="essay_editor" class="form-control"></textarea>
+    </div>
+
+    <div class="mb-3 d-none" id="file-upload-wrapper">
+      <label class="form-label">Instructions</label>
+      <textarea name="file_instruction" class="form-control" rows="3"></textarea>
+      <label class="form-label mt-3">Optional Guide File (PDF or DOCX)</label>
+      <input type="file" name="file_guide" class="form-control" accept=".pdf,.docx">
+    </div>
+
+    <div class="mb-3">
+  <label class="form-label">Assessment Deadline</label>
+  <input type="number" name="assessment_due_in_days" class="form-control" min="1"
+         placeholder="e.g. 3 (means 3 days after applicant applies)"
+         value="{{ old('assessment_due_in_days', $assessment?->due_in_days) }}">
+</div>
+
+  </div>
+</div>
+
+
+      <button type="submit" class="btn btn-primary mt-4">Post Job</button>
+      @if ($errors->any())
+  <div class="alert alert-danger">
+    <strong>There were some errors with your submission:</strong>
+    <ul class="mb-0 mt-1">
+      @foreach ($errors->all() as $error)
+        <li>{{ $error }}</li>
+      @endforeach
+    </ul>
+  </div>
+@endif
+
     </form>
   </div>
 </div>
@@ -118,5 +169,44 @@
     }
   });
 </script>
+<script src="{{ asset('assets/js/tinymce/tinymce.min.js') }}"></script>
+<script>
+  let essayEditorInitialized = false;
+
+  tinymce.init({
+    selector: '#essay_editor',
+    height: 300,
+    menubar: false,
+    plugins: 'lists link code',
+    toolbar: 'undo redo | bold italic underline | bullist numlist | link | code',
+    branding: false,
+    setup: editor => {
+      essayEditorInitialized = true;
+    }
+  });
+
+  document.getElementById('enable-assessment').addEventListener('change', function () {
+    const section = document.getElementById('assessment-section');
+    section.style.display = this.checked ? 'block' : 'none';
+  });
+
+  document.getElementById('assessment-type').addEventListener('change', function () {
+    const type = this.value;
+    document.getElementById('essay-editor-wrapper').classList.toggle('d-none', type !== 'essay');
+    document.getElementById('file-upload-wrapper').classList.toggle('d-none', type !== 'file_upload');
+
+    if (type === 'essay' && !essayEditorInitialized) {
+      tinymce.init({
+        selector: '#essay_editor',
+        height: 300,
+        menubar: false,
+        plugins: 'lists link code',
+        toolbar: 'undo redo | bold italic underline | bullist numlist | link | code',
+        branding: false
+      });
+    }
+  });
+</script>
+
 @endpush
 

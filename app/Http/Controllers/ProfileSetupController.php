@@ -12,32 +12,46 @@ use App\Models\Experience;
 use App\Models\Project;
 use App\Models\Achievement;
 use Illuminate\Support\Facades\Storage;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver as GdDriver;
 
 class ProfileSetupController extends Controller
 {
-    public function storeUserProfile(Request $request)
+public function storeUserProfile(Request $request)
 {
     $request->validate([
-        'location' => 'nullable|string|max:255',
-        'birth_date' => 'nullable|date',
+        'location' => 'required|string|max:255',
+        'birth_date' => 'required|date',
         'phone' => 'nullable|string|max:20',
         'bio' => 'nullable|string|max:1000',
-        'cv' => 'nullable|file|mimes:pdf,doc,docx|max:2048',
+        'cv' => 'nullable|file|mimes:pdf,doc,docx',
+        'profile_picture_cropped' => 'required|string',
     ]);
-    
-
-    $user = User::find(Auth::id());
 
 
+    $user = Auth::user();
+    if ($request->filled('profile_picture_cropped')) {
+    $base64 = $request->input('profile_picture_cropped');
+    $image = ImageManager::gd()->read($base64)->toJpeg(90);
+
+    $filename = 'profiles/' . uniqid() . '.jpg';
+    Storage::disk('public')->put($filename, (string) $image);
+/** @var \App\Models\User $user */
+    $profile = $user->profile ?? $user->profile()->create();
+    $profile->profile_picture = $filename;
+    $profile->save();
+}
+
+
+    // ✅ Store or update user profile
     $data = $request->only(['location', 'birth_date', 'phone', 'bio']);
-
     if ($request->hasFile('cv')) {
         $data['cv_url'] = $request->file('cv')->store('cvs', 'public');
     }
+    /** @var \App\Models\User $user */
     $user->profile()->updateOrCreate([], $data);
-
-
     
+
     return redirect('/skills');
 }
 public function storeSkills(Request $request)
@@ -79,10 +93,7 @@ public function storeEducation(Request $request)
     ]);
 
     $user = User::find(Auth::id());
-
-    // Delete old entries (replace mode)
-    $user->educations()->delete();
-
+    $user->education()->delete();
     foreach ($request->input('education', []) as $entry) {
         $user->educations()->create([
             'institution_name' => $entry['institution'] ?? null,
@@ -215,6 +226,39 @@ public function showSummary()
     return view('profilebuilder.summary', compact('user'));
 }
 
+public function editPicture()
+{
+    return view('profilebuilder.edit-picture', [
+        'profile' => Auth::user()->profile
+    ]);
+}
+
+// public function updatePicture(Request $request)
+// {
+//     $request->validate([
+//         'profile_picture_cropped' => 'required|string'
+//     ]);
+
+//     $base64 = $request->input('profile_picture_cropped');
+
+//     // Create an image manager instance with default driver (gd or imagick)
+//     $manager = new ImageManager(driver:'gd'); // or 'imagick'
+
+
+//     // Decode and encode the base64 image
+//     $image = $manager->read($base64)->toJpeg(90); // replaces encode('jpg', 90)
+
+//     // Create unique file name and store it
+//     $filename = 'profiles/' . uniqid() . '.jpg';
+//     Storage::disk('public')->put($filename, (string) $image);
+
+//     /** @var \App\Models\User $user */
+//     $profile = Auth::user()->profile ?? Auth::user()->profile()->create();
+//     $profile->profile_picture = $filename;
+//     $profile->save();
+
+//     return redirect()->back()->with('success', 'Profile picture updated.');
+// }
 
 
 }

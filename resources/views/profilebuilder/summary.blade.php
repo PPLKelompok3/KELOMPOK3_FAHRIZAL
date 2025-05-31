@@ -165,7 +165,7 @@
 </div>
 
 
-<a href="/dashboard" class="btn d-grid w-100 mt-4" style="background-color: #ffc901; border: none; color: #000;">
+<a href="/" class="btn d-grid w-100 mt-4" style="background-color: #ffc901; border: none; color: #000;">
   Continue →
 </a>
 

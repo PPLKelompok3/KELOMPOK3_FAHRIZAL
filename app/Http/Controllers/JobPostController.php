@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use App\Models\JobApplication;
 use App\Models\Notification;
-
+use App\Models\AssessmentSubmission;
 class JobPostController extends Controller
 {
     /**
@@ -33,11 +33,18 @@ public function store(Request $request)
         'experience_level' => 'nullable|string',
         'skills' => 'nullable|string',
         'category' => 'nullable|string',
+
+        // Assessment type and due date (optional)
+        'assessment_type' => 'nullable|in:essay,file_upload',
+        'assessment_due_in_days' => 'nullable|integer|min:1',
+        'essay_questions' => 'nullable|string', // TinyMCE content
+        'file_instruction' => 'nullable|string',
+        'file_guide' => 'nullable|file|mimes:pdf,docx',
     ]);
 
     $data['company_id'] = Auth::user()->company_id;
 
-    // ✅ Decode Tagify JSON string → extract skill names
+    // Skill parsing
     $skills = collect(json_decode($request->skills, true))
         ->pluck('value')
         ->filter()
@@ -45,8 +52,7 @@ public function store(Request $request)
         ->unique()
         ->values();
 
-    // Save skills as comma-separated or JSON string
-    $data['skills'] = $skills->implode(','); // or ->toJson() for JSON storage
+    $data['skills'] = $skills->implode(',');
 
     $categoryRaw = $request->input('category');
     $decoded = json_decode($categoryRaw, true);
@@ -54,23 +60,46 @@ public function store(Request $request)
         ? $decoded[0]['value']
         : null;
 
-
-
     // ✅ Save job post
     $job = JobPost::create($data);
 
-    // ✅ Store new skills to DB
+    // ✅ Save new skills
     foreach ($skills as $skillName) {
         \App\Models\Skill::firstOrCreate(['name' => $skillName]);
     }
 
-    return redirect()->route('dashboard')->with('success', 'Job posted!');
+    // ✅ Store optional assessment
+if ($request->filled('assessment_type')) {
+    $assessmentData = [
+        'job_post_id' => $job->id,
+        'type' => $request->input('assessment_type'),
+        'due_in_days' => $request->input('assessment_due_in_days'),
+        'instruction' => $request->input('assessment_instruction') ?? '',
+        'attachment' => null, // ← update here
+    ];
+
+    if ($request->input('assessment_type') === 'essay') {
+        $assessmentData['instruction'] = $request->input('essay_questions');
+    } elseif ($request->input('assessment_type') === 'file_upload') {
+        $assessmentData['instruction'] = $request->input('file_instruction');
+        if ($request->hasFile('file_guide')) {
+            $assessmentData['attachment'] = $request->file('file_guide')->store('assessment_guides', 'public');
+        }
+    }
+
+    \App\Models\JobPostAssessment::create($assessmentData);
 }
+    
+
+    return redirect()->route('jobs.index')->with('success', 'Job posted!');
+}
+
 
 
 public function edit(JobPost $job)
 {
-    return view('jobsmanagement.edit', compact('job'));
+    $assessment = $job->assessment; 
+    return view('jobsmanagement.edit', compact('job', 'assessment'));
 }
 
 
@@ -86,48 +115,83 @@ public function update(Request $request, JobPost $job)
         'experience_level' => 'nullable|string',
         'skills' => 'nullable|string',
         'category' => 'nullable|string',
+
+        // Optional assessment fields
+        'assessment_type' => 'nullable|in:essay,file_upload',
+        'assessment_due_in_days' => 'nullable|integer|min:1',
+        'essay_questions' => 'nullable|string', // TinyMCE content
+        'file_instruction' => 'nullable|string',
+        'file_guide' => 'nullable|file|mimes:pdf,docx',
     ]);
 
-    // 🔁 Handle skills from Tagify JSON array
+    // Handle skills
     $skills = collect(json_decode($request->skills, true))
         ->pluck('value')
         ->filter()
         ->map(fn($skill) => ucfirst(strtolower(trim($skill))))
         ->unique()
         ->values();
-
     $data['skills'] = $skills->implode(',');
 
-    // 💾 Optionally update skill list in DB
     foreach ($skills as $skillName) {
         \App\Models\Skill::firstOrCreate(['name' => $skillName]);
     }
 
-    // 🔁 Handle category from Tagify JSON (single object array)
+    // Handle category
     $categoryRaw = $request->input('category');
     $decoded = json_decode($categoryRaw, true);
     $data['category'] = is_array($decoded) && isset($decoded[0]['value'])
         ? $decoded[0]['value']
         : null;
 
-    // ✅ Update the job
+    // ✅ Update job post
     $job->update($data);
 
-    return redirect()->route('dashboard')->with('success', 'Job updated successfully.');
+    // ✅ Update or delete assessment
+    if ($request->filled('assessment_type')) {
+    $assessmentData = [
+        'job_post_id' => $job->id,
+        'type' => $request->input('assessment_type'),
+        'due_in_days' => $request->input('assessment_due_in_days'),
+        'instruction' => $request->input('assessment_instruction') ?? '',
+        'attachment' => null, // ← update here
+    ];
+
+       if ($request->input('assessment_type') === 'essay') {
+        $assessmentData['instruction'] = $request->input('essay_questions');
+    } elseif ($request->input('assessment_type') === 'file_upload') {
+        $assessmentData['instruction'] = $request->input('file_instruction');
+        if ($request->hasFile('file_guide')) {
+            $assessmentData['attachment'] = $request->file('file_guide')->store('assessment_guides', 'public');
+        }
+    }
+
+        // Create or update assessment record
+        $job->assessment()->updateOrCreate([], $assessmentData);
+
+    } else {
+        // If assessment_type is empty but one exists → delete it
+        if ($job->assessment) {
+            $job->assessment->delete();
+        }
+    }
+
+    return redirect()->route('jobs.index')->with('success', 'Job updated successfully.');
 }
+
 
 
 public function destroy(JobPost $job)
 {
     $job->delete();
-    return redirect()->route('dashboard')->with('success', 'Job deleted!');
+    return redirect()->route('jobs.index')->with('success', 'Job deleted!');
 }
 public function toggleStatus(JobPost $job)
 {
     $job->status = $job->status === 'Active' ? 'Not Active' : 'Active';
     $job->save();
 
-    return back()->with('success', 'Job status updated to ' . $job->status);
+    return redirect()->route('jobs.index')->with('success', 'Job updated successfully.');
 }
 public function show($id, $slug = null)
 {
@@ -205,33 +269,135 @@ public function relatedJobs(Request $request, $id)
 // }
 
 public function apply(Request $request, $id)
-    {
-        // 🔥 SKIP checking if already applied (so you can test freely)
+{
+    $userId = Auth::id();
+    $jobPost = JobPost::with('assessment')->findOrFail($id);
 
-        JobApplication::create([
-            'job_id' => $id,
-            'user_id' => Auth::id(),
-            'status' => 'Pending', // default status
-            'cover_letter' => $request->input('cover_letter', null),
-        ]);
+    // Prevent duplicate applications
+    if (JobApplication::where('job_id', $id)->where('user_id', $userId)->exists()) {
+        return back()->with('error', 'You have already applied to this job.');
+    }
 
-        $jobPost = JobPost::find($id); // Still use $id
-$recruiterUsers = \App\Models\User::where('company_id', $jobPost->company_id)
-                    ->get(); // 🔥 find all users with same company_id
+    // Decide application status
+    $status = $jobPost->assessment ? 'under_assessment' : 'pending';
 
-foreach ($recruiterUsers as $recruiter) {
-    Notification::create([
-        'user_id' => $recruiter->id, // 🔥 Send to recruiter user id
-        'type' => 'new_application',
-        'content' => 'A new applicant applied for ' . $jobPost->title,
-        'company_logo_url' => null,
-        'is_read' => 0,
-        'created_at' => now(),
-        'updated_at' => now()
+    // Create the application
+    $application = JobApplication::create([
+        'job_id' => $id,
+        'user_id' => $userId,
+        'status' => $status,
+        'cover_letter' => $request->input('cover_letter', null),
     ]);
+     if ($jobPost->assessment) {
+        return redirect()->route('assessments.take', [
+            'job' => $jobPost->id,
+            'application' => $application->id,
+        ]);
+    }
+
+    // Send notification to recruiter
+    $recruiterUsers = \App\Models\User::where('company_id', $jobPost->company_id)->get();
+
+    foreach ($recruiterUsers as $recruiter) {
+        $existingNotification = Notification::where('user_id', $recruiter->id)
+            ->where('type', 'new_application')
+            ->where('is_read', 0)
+            ->where('content', 'like', "%{$jobPost->title}%")
+            ->orderBy('updated_at', 'desc')
+            ->first();
+
+        if ($existingNotification) {
+            preg_match('/^(\d+)\s+applicants/', $existingNotification->content, $matches);
+            $currentCount = isset($matches[1]) ? (int)$matches[1] : 1;
+            $newCount = $currentCount + 1;
+
+            $existingNotification->update([
+                'content' => "{$newCount} applicants applied for {$jobPost->title}",
+                'updated_at' => now()
+            ]);
+        } else {
+            Notification::create([
+                'user_id' => $recruiter->id,
+                'type' => 'new_application',
+                'content' => "1 applicant applied for {$jobPost->title}",
+                'company_logo_url' => null,
+                'is_read' => 0,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+        }
+    }
+
+    // Redirect based on whether assessment is required
+    if ($status === 'under_assessment') {
+        return redirect()->route('assessments.take', $jobPost->id);
+    }
+
+    return redirect()->route('applicantdashboard')->with('success', 'Your application has been submitted.');
 }
 
-return redirect()->route('applicantdashboard')->with('success', 'Your test application has been submitted.');
 
+
+    public function index()
+    {
+        $user = Auth::user();
+        $companyId = $user->company_id;
+    
+        // Get only job posts belonging to recruiter's company
+        $jobs = \App\Models\JobPost::where('company_id', $companyId)->latest()->get();
+    
+        return view('recruiter.jobsindex', compact('jobs'));
     }
+    public function submitAssessment(Request $request, JobPost $job)
+{
+    
+
+
+    $user = Auth::user();
+    $assessment = $job->assessment;
+
+    if (!$assessment) {
+        abort(404, 'Assessment not found for this job.');
+    }
+
+    $request->validate([
+        'submission_text' => 'nullable|string',
+        'submission_file' => 'nullable|file|mimes:pdf,doc,docx|max:5120',
+    ]);
+
+    // Check for duplicate submission
+    $existing = AssessmentSubmission::where('job_post_id', $job->id)
+        ->where('user_id', $user->id)
+        ->first();
+
+    if ($existing) {
+        return back()->with('error', 'You have already submitted this assessment.');
+    }
+
+    $submission = new AssessmentSubmission();
+    $submission->job_post_id = $job->id;
+    $submission->user_id = $user->id;
+    $submission->submission_text = $request->input('submission_text');
+
+    if ($request->hasFile('assessment_file')) {
+    $submission->submission_file = $request->file('assessment_file')->store('assessment_submissions', 'public');
+}
+
+
+    $submission->started_at = JobApplication::where('job_id', $job->id)
+        ->where('user_id', $user->id)
+        ->value('created_at'); // fallback to application time
+
+    $submission->submitted_at = now();
+    $submission->save();
+
+    // Update application status to "Waiting_for_review"
+    JobApplication::where('job_id', $job->id)
+        ->where('user_id', $user->id)
+        ->update(['status' => 'Waiting_for_review']);
+
+    return redirect()->route('applicantdashboard')->with('success', 'Assessment submitted successfully!');
+}
+    
+    
 }
