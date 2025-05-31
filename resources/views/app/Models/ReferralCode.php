@@ -17,4 +17,9 @@ class ReferralCode extends Model
     {
         return $this->belongsTo(JobPost::class);
     }
+    public function usedBy()
+{
+    return $this->belongsTo(User::class, 'used_by');
+}
+
 }
